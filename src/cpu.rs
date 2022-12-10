@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crate::{
     memory::{self, Memory},
     op_codes::*,
@@ -20,7 +21,7 @@ pub struct Cpu {
     ps: ProcessorStatus,
 
     // Memory module
-    memory: Memory,
+    pub memory: Memory,
 }
 
 impl Cpu {
@@ -39,30 +40,31 @@ impl Cpu {
         self.to_owned()
     }
 
+    pub fn load_program(&mut self) {
+        todo!()
+    }
+
     pub fn execute(&mut self) {
         loop {
             let instruction = self.fetch_and_increment_pc();
             match instruction {
-                LDA_IM => {
-                    let value = self.fetch_and_increment_pc();
-                    self.a = value;
-
-                    // set the zero flag
-                    if self.a == 0 {
-                        self.ps = self.ps | ProcessorStatus::Z;
-                    }
-
-                    // set negative flag
-                    if self.a & 0b10000000 > 0 {
-                        self.ps = self.ps | ProcessorStatus::N;
-                    }
-                }
+                LDA_IM => self.lda_immediate(),
+                LDA_ZP => self.lda_zp(),
+                LDA_ZP_X => self.lda_zp_x(),
                 NOP => break,
                 _ => {
                     panic!("unrecognized instruction")
                 }
             }
         }
+    }
+
+    fn fetch(&mut self, address: usize) -> u8 {
+        if self.pc as usize > memory::MAX_MEM {
+            panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
+        }
+
+        self.memory.data[address]
     }
 
     fn fetch_and_increment_pc(&mut self) -> u8 {
@@ -73,5 +75,98 @@ impl Cpu {
         let data = self.memory.data[self.pc as usize];
         self.pc += 1;
         data
+    }
+
+    // load accumulator immediate mode
+    fn lda_immediate(&mut self) {
+        let value = self.fetch_and_increment_pc();
+        self.a = value;
+        self.lda_set_flags();
+    }
+
+    // load accumulator zero page
+    fn lda_zp(&mut self) {
+        let zero_page_address = self.fetch_and_increment_pc();
+        self.a = self.fetch(zero_page_address as usize);
+        self.lda_set_flags();
+    }
+
+    // load accumulator zero page X index
+    fn lda_zp_x(&mut self) {
+        let zero_page_address = self.fetch_and_increment_pc();
+        self.a = self.fetch((zero_page_address + self.x) as usize);
+        self.lda_set_flags();
+    }
+
+    // set zero and negative flags whenever an LDA instruction is executed
+    fn lda_set_flags(&mut self) {
+        // set zero flag
+        self.ps.set(ProcessorStatus::Z, bool::from(self.a == 0));
+        self.ps
+            .set(ProcessorStatus::N, bool::from((self.a & 0b10000000) > 0));
+    }
+
+    // no-op
+    fn nop(&mut self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cpu;
+    use crate::op_codes::*;
+
+    #[test]
+    fn new_cpu_should_initialize_defaults() {
+        let cpu = Cpu::new().reset();
+        assert_eq!(cpu.pc, 0xFFFC);
+    }
+
+    #[test]
+    fn lda_immediate_should_load_accumulator_register() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_IM;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x42);
+    }
+
+    #[test]
+    fn lda_zero_should_set_zero_flag() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_IM;
+        cpu.memory.data[0xFFFD] = 0x00;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(format!("{}", cpu.ps), "00000010");
+    }
+
+    #[test]
+    fn lda_seventh_bit_set_should_raise_negative_flag() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_IM;
+        cpu.memory.data[0xFFFD] = 0b10000001;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(format!("{}", cpu.ps), "10000000");
+    }
+
+    #[test]
+    fn lda_zero_page_should_load_accumulator_register() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_ZP;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0x0042] = 0x84;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x84);
     }
 }

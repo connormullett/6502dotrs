@@ -1,13 +1,13 @@
-#![allow(unused)]
-
 mod cpu;
 mod memory;
 mod op_codes;
 mod processor_status;
 
 use cpu::Cpu;
-use memory::Memory;
+use op_codes::*;
 
 fn main() {
-    let cpu = Cpu::new().reset();
+    let mut cpu = Cpu::new().reset();
+    cpu.memory.data[0xFFFC] = NOP;
+    cpu.execute();
 }
