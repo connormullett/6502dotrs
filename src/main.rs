@@ -2,6 +2,7 @@
 
 mod cpu;
 mod memory;
+mod op_codes;
 mod processor_status;
 
 use cpu::Cpu;

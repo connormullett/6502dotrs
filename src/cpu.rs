@@ -1,5 +1,6 @@
 use crate::{
     memory::{self, Memory},
+    op_codes::*,
     processor_status::ProcessorStatus,
 };
 
@@ -40,11 +41,28 @@ impl Cpu {
 
     pub fn execute(&mut self) {
         loop {
-            let instruction = self.fetch();
+            let instruction = self.fetch_and_increment_pc();
+            match instruction {
+                LDA_IM => {
+                    let value = self.fetch_and_increment_pc();
+                    self.a = value;
+
+                    // set the zero flag
+                    if self.a == 0 {
+                        self.ps = self.ps | ProcessorStatus::Z;
+                    }
+
+                    // set negative flag
+                    if self.a & 0b10000000 > 0 {
+                        self.ps = self.ps | ProcessorStatus::N;
+                    }
+                }
+                _ => break,
+            }
         }
     }
 
-    fn fetch(&mut self) -> u8 {
+    fn fetch_and_increment_pc(&mut self) -> u8 {
         if self.pc as usize > memory::MAX_MEM {
             panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
         }
