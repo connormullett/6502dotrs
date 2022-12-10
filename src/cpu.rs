@@ -57,7 +57,10 @@ impl Cpu {
                         self.ps = self.ps | ProcessorStatus::N;
                     }
                 }
-                _ => break,
+                NOP => break,
+                _ => {
+                    panic!("unrecognized instruction")
+                }
             }
         }
     }
