@@ -55,6 +55,7 @@ impl Cpu {
                 LDA_ZP => self.lda_zp(),
                 LDA_ZP_X => self.lda_zp_x(),
                 LDA_ZP_XI => self.lda_x_indexed_zero_page_indirect(),
+                LDA_ZP_IY => self.lda_y_zero_page_indirect_indexed(),
                 NOP => break,
                 _ => {
                     panic!("unrecognized instruction: {instruction:02x}");
@@ -87,6 +88,14 @@ impl Cpu {
         self.memory.data[address]
     }
 
+    // read a word from memory
+    fn read_word(&mut self, address: usize) -> u16 {
+        let mut data = self.read_byte(address) as u16;
+        data |= u16::from(self.read_byte(address + 1)) << 8;
+        data
+    }
+
+    // fetch a word from memory while incrememting the pc each read (2 cycles)
     fn fetch_word(&mut self) -> u16 {
         let mut data = self.memory.data[self.pc as usize] as u16;
         self.pc += 1;
@@ -156,6 +165,17 @@ impl Cpu {
         let indirect_address = self.fetch_and_increment_pc() + self.x;
         // & 0xFF will wrap to start of zero page if overflow
         self.a = self.fetch_zero_page((indirect_address & 0xFF) as usize);
+        self.lda_set_flags();
+    }
+
+    // load accumulator zero page indirect y indexed
+    fn lda_y_zero_page_indirect_indexed(&mut self) {
+        let zero_page_address = self.fetch_and_increment_pc() + self.y;
+        dbg!(zero_page_address);
+        let effective_address = self.read_word(zero_page_address as usize);
+        let effective_address_y = effective_address + self.y as u16;
+        dbg!(effective_address_y);
+        self.a = self.read_byte(effective_address_y as usize);
         self.lda_set_flags();
     }
 
@@ -313,7 +333,32 @@ mod tests {
         cpu.memory.data[0xFFFE] = NOP;
 
         cpu.execute();
-        cpu.debug_print();
         assert_eq!(cpu.a, 0x20);
+    }
+
+    #[test]
+    fn lda_zero_page_indirect_y_indexed_should_load_accumulator_register() {
+        let mut cpu = Cpu::new().reset();
+        // set the Y register to 10
+        cpu.y = 0x10;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_ZP_IY;
+        cpu.memory.data[0xFFFD] = 0x86;
+        cpu.memory.data[0x0086] = 0x20;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x20);
+    }
+
+    #[test]
+    fn read_word() {
+        let mut cpu = Cpu::new().reset();
+        cpu.memory.data[0x44] = 0x20;
+        cpu.memory.data[0x45] = 0x20;
+
+        let word = cpu.read_word(0x44);
+
+        assert_eq!(word, 0x2020);
     }
 }

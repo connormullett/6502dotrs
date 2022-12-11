@@ -13,5 +13,7 @@ pub const LDA_ZP: u8 = 0xA5;
 pub const LDA_ZP_X: u8 = 0xB5;
 // load accumulator zero page x indexed indirect
 pub const LDA_ZP_XI: u8 = 0xA1;
+// load accumulator zero page y indirect indexed
+pub const LDA_ZP_IY: u8 = 0xB1;
 // no-op
 pub const NOP: u8 = 0xEA;
