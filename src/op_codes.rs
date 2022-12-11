@@ -5,6 +5,8 @@ pub const LDA_IM: u8 = 0xA9;
 pub const LDA_ABS: u8 = 0xAD;
 // load accumulator absolute x indexed
 pub const LDA_ABS_X: u8 = 0xBD;
+// load accumulator absolute y indexed
+pub const LDA_ABS_Y: u8 = 0xB9;
 // load accumulator zero page
 pub const LDA_ZP: u8 = 0xA5;
 // load accumulator zero page x indexed

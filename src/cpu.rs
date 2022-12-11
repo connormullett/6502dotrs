@@ -51,6 +51,7 @@ impl Cpu {
                 LDA_IM => self.lda_immediate(),
                 LDA_ABS => self.lda_absolute(),
                 LDA_ABS_X => self.lda_absolute_x_indexed(),
+                LDA_ABS_Y => self.lda_absolute_y_indexed(),
                 LDA_ZP => self.lda_zp(),
                 LDA_ZP_X => self.lda_zp_x(),
                 NOP => break,
@@ -123,17 +124,15 @@ impl Cpu {
 
     // load accumulator absolute x indexed
     fn lda_absolute_x_indexed(&mut self) {
-        let abs_address = self.fetch_word();
-        let value = self.read_byte(abs_address as usize) + self.x;
-        self.a = value;
+        let abs_address = self.fetch_word() + self.x as u16;
+        self.a = self.read_byte(abs_address as usize);
         self.lda_set_flags();
     }
 
     // load accumulator absolute y indexed
     fn lda_absolute_y_indexed(&mut self) {
-        let abs_address = self.fetch_word();
-        let value = self.read_byte(abs_address as usize) + self.y;
-        self.a = value;
+        let abs_address = self.fetch_word() + self.y as u16;
+        self.a = self.read_byte(abs_address as usize);
         self.lda_set_flags();
     }
 
@@ -212,11 +211,14 @@ mod tests {
         // set x register
         cpu.x = 0x01;
         // Load a dummy program into memory
-        cpu.memory.data[0xFFF0] = LDA_ABS;
+        cpu.memory.data[0xFFF0] = LDA_ABS_X;
         cpu.memory.data[0xFFF1] = 0x80;
         cpu.memory.data[0xFFF2] = 0x44; // 0x4480
         cpu.memory.data[0x4481] = 0x37;
         cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x37);
     }
 
     #[test]
@@ -228,11 +230,14 @@ mod tests {
         // set y register
         cpu.y = 0x01;
         // Load a dummy program into memory
-        cpu.memory.data[0xFFF0] = LDA_ABS;
+        cpu.memory.data[0xFFF0] = LDA_ABS_Y;
         cpu.memory.data[0xFFF1] = 0x80;
         cpu.memory.data[0xFFF2] = 0x44; // 0x4480
         cpu.memory.data[0x4481] = 0x37;
         cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x37);
     }
 
     #[test]
