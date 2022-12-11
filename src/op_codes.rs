@@ -1,6 +1,8 @@
 #![allow(unused)]
 // load accumulator immediate
 pub const LDA_IM: u8 = 0xA9;
+// load accumulator absolute
+pub const LDA_ABS: u8 = 0xAD;
 // load accumulator zero page
 pub const LDA_ZP: u8 = 0xA5;
 // load accumulator zero page x indexed

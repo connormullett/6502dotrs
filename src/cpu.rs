@@ -49,6 +49,7 @@ impl Cpu {
             let instruction = self.fetch_and_increment_pc();
             match instruction {
                 LDA_IM => self.lda_immediate(),
+                LDA_ABS => self.lda_absolute(),
                 LDA_ZP => self.lda_zp(),
                 LDA_ZP_X => self.lda_zp_x(),
                 NOP => break,
@@ -59,7 +60,8 @@ impl Cpu {
         }
     }
 
-    fn fetch(&mut self, address: usize) -> u8 {
+    // fetch a single byte from the zero page
+    fn fetch_zero_page(&mut self, address: usize) -> u8 {
         if self.pc as usize > memory::MAX_MEM {
             panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
         }
@@ -67,6 +69,22 @@ impl Cpu {
         self.memory.data[address]
     }
 
+    // read a byte from memory
+    fn read_byte(&mut self, address: usize) -> u8 {
+        self.memory.data[address]
+    }
+
+    fn fetch_word(&mut self) -> u16 {
+        let mut data = self.memory.data[self.pc as usize] as u16;
+        self.pc += 1;
+
+        data |= u16::from(self.memory.data[self.pc as usize]) << 8;
+        self.pc += 1;
+
+        data
+    }
+
+    // fetch a byte and increment the pc
     fn fetch_and_increment_pc(&mut self) -> u8 {
         if self.pc as usize > memory::MAX_MEM {
             panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
@@ -84,17 +102,23 @@ impl Cpu {
         self.lda_set_flags();
     }
 
+    // load accumulator absolute
+    fn lda_absolute(&mut self) {
+        let abs_address = self.fetch_word();
+        self.a = self.read_byte(abs_address as usize);
+    }
+
     // load accumulator zero page
     fn lda_zp(&mut self) {
         let zero_page_address = self.fetch_and_increment_pc();
-        self.a = self.fetch(zero_page_address as usize);
+        self.a = self.fetch_zero_page(zero_page_address as usize);
         self.lda_set_flags();
     }
 
     // load accumulator zero page X index
     fn lda_zp_x(&mut self) {
         let zero_page_address = self.fetch_and_increment_pc();
-        self.a = self.fetch((zero_page_address + self.x) as usize);
+        self.a = self.fetch_zero_page((zero_page_address + self.x) as usize);
         self.lda_set_flags();
     }
 
@@ -131,6 +155,23 @@ mod tests {
 
         cpu.execute();
         assert_eq!(cpu.a, 0x42);
+    }
+
+    #[test]
+    fn lda_absolute_should_load_accumulator_register() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDA_ABS;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4480] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x37);
     }
 
     #[test]
