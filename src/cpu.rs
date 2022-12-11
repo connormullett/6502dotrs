@@ -129,6 +129,14 @@ impl Cpu {
         self.lda_set_flags();
     }
 
+    // load accumulator absolute y indexed
+    fn lda_absolute_y_indexed(&mut self) {
+        let abs_address = self.fetch_word();
+        let value = self.read_byte(abs_address as usize) + self.y;
+        self.a = value;
+        self.lda_set_flags();
+    }
+
     // load accumulator zero page
     fn lda_zp(&mut self) {
         let zero_page_address = self.fetch_and_increment_pc();
@@ -203,6 +211,22 @@ mod tests {
         cpu.pc = 0xFFF0;
         // set x register
         cpu.x = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDA_ABS;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4481] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
+    }
+
+    #[test]
+    fn lda_absolute_y_indexed_should_load_accumulator_with_correct_value() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // set y register
+        cpu.y = 0x01;
         // Load a dummy program into memory
         cpu.memory.data[0xFFF0] = LDA_ABS;
         cpu.memory.data[0xFFF1] = 0x80;
