@@ -50,14 +50,25 @@ impl Cpu {
             match instruction {
                 LDA_IM => self.lda_immediate(),
                 LDA_ABS => self.lda_absolute(),
+                LDA_ABS_X => self.lda_absolute_x_indexed(),
                 LDA_ZP => self.lda_zp(),
                 LDA_ZP_X => self.lda_zp_x(),
                 NOP => break,
                 _ => {
-                    panic!("unrecognized instruction")
+                    panic!("unrecognized instruction: {instruction:02x}");
                 }
             }
         }
+    }
+
+    // print contents of registers, pc, sp, and status flags
+    fn debug_print(&self) {
+        println!("pc: 0x{:04x}", self.pc);
+        println!("sp: 0x{:04x}", self.sp);
+        println!("a : 0x{:04x}", self.a);
+        println!("x : 0x{:04x}", self.x);
+        println!("y : 0x{:04x}", self.y);
+        println!("ps: {}", self.ps);
     }
 
     // fetch a single byte from the zero page
@@ -95,7 +106,7 @@ impl Cpu {
         data
     }
 
-    // LDA
+    /* LOAD A INSTRUCTIONS */
     // load accumulator immediate mode
     fn lda_immediate(&mut self) {
         let value = self.fetch_and_increment_pc();
@@ -110,6 +121,14 @@ impl Cpu {
         self.lda_set_flags();
     }
 
+    // load accumulator absolute x indexed
+    fn lda_absolute_x_indexed(&mut self) {
+        let abs_address = self.fetch_word();
+        let value = self.read_byte(abs_address as usize) + self.x;
+        self.a = value;
+        self.lda_set_flags();
+    }
+
     // load accumulator zero page
     fn lda_zp(&mut self) {
         let zero_page_address = self.fetch_and_increment_pc();
@@ -117,7 +136,7 @@ impl Cpu {
         self.lda_set_flags();
     }
 
-    // load accumulator zero page X index
+    // load accumulator zero page x indexed
     fn lda_zp_x(&mut self) {
         let zero_page_address = self.fetch_and_increment_pc();
         self.a = self.fetch_zero_page((zero_page_address + self.x) as usize);
@@ -174,6 +193,22 @@ mod tests {
 
         cpu.execute();
         assert_eq!(cpu.a, 0x37);
+    }
+
+    #[test]
+    fn lda_absolute_x_indexed_should_load_accumulator_with_correct_value() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // set x register
+        cpu.x = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDA_ABS;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4481] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
     }
 
     #[test]
