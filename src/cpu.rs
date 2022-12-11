@@ -95,6 +95,7 @@ impl Cpu {
         data
     }
 
+    // LDA
     // load accumulator immediate mode
     fn lda_immediate(&mut self) {
         let value = self.fetch_and_increment_pc();
@@ -106,6 +107,7 @@ impl Cpu {
     fn lda_absolute(&mut self) {
         let abs_address = self.fetch_word();
         self.a = self.read_byte(abs_address as usize);
+        self.lda_set_flags();
     }
 
     // load accumulator zero page
@@ -205,6 +207,21 @@ mod tests {
         cpu.memory.data[0xFFFC] = LDA_ZP;
         cpu.memory.data[0xFFFD] = 0x42;
         cpu.memory.data[0x0042] = 0x84;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x84);
+    }
+
+    #[test]
+    fn lda_zero_page_x_indexed_should_load_accumulator_register() {
+        let mut cpu = Cpu::new().reset();
+        // set the X register to 1
+        cpu.x = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_ZP_X;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0x0043] = 0x84;
         cpu.memory.data[0xFFFE] = NOP;
 
         cpu.execute();
