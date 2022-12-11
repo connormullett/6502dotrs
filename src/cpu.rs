@@ -54,6 +54,7 @@ impl Cpu {
                 LDA_ABS_Y => self.lda_absolute_y_indexed(),
                 LDA_ZP => self.lda_zp(),
                 LDA_ZP_X => self.lda_zp_x(),
+                LDA_ZP_XI => self.lda_x_indexed_zero_page_indirect(),
                 NOP => break,
                 _ => {
                     panic!("unrecognized instruction: {instruction:02x}");
@@ -146,7 +147,15 @@ impl Cpu {
     // load accumulator zero page x indexed
     fn lda_zp_x(&mut self) {
         let zero_page_address = self.fetch_and_increment_pc();
-        self.a = self.fetch_zero_page((zero_page_address + self.x) as usize);
+        self.a = self.fetch_zero_page((zero_page_address) as usize) + self.x;
+        self.lda_set_flags();
+    }
+
+    // load accumulator indexed zero page indirect
+    fn lda_x_indexed_zero_page_indirect(&mut self) {
+        let indirect_address = self.fetch_and_increment_pc() + self.x;
+        // & 0xFF will wrap to start of zero page if overflow
+        self.a = self.fetch_zero_page((indirect_address & 0xFF) as usize);
         self.lda_set_flags();
     }
 
@@ -285,10 +294,26 @@ mod tests {
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDA_ZP_X;
         cpu.memory.data[0xFFFD] = 0x42;
-        cpu.memory.data[0x0043] = 0x84;
+        cpu.memory.data[0x0042] = 0x84;
         cpu.memory.data[0xFFFE] = NOP;
 
         cpu.execute();
-        assert_eq!(cpu.a, 0x84);
+        assert_eq!(cpu.a, 0x85);
+    }
+
+    #[test]
+    fn lda_zero_page_x_indexed_indirect_should_load_accumulator_register() {
+        let mut cpu = Cpu::new().reset();
+        // set the X register to 1
+        cpu.x = 0x04;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDA_ZP_XI;
+        cpu.memory.data[0xFFFD] = 0x20;
+        cpu.memory.data[0x0024] = 0x20;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        cpu.debug_print();
+        assert_eq!(cpu.a, 0x20);
     }
 }
