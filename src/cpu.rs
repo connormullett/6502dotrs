@@ -46,7 +46,7 @@ impl Cpu {
 
     pub fn execute(&mut self) {
         loop {
-            let instruction = self.fetch_and_increment_pc();
+            let instruction = self.fetch_byte();
             match instruction {
                 LDA_IM => self.lda_immediate(),
                 LDA_ABS => self.lda_absolute(),
@@ -74,15 +74,6 @@ impl Cpu {
         println!("ps: {}", self.ps);
     }
 
-    // fetch a single byte from the zero page
-    fn fetch_zero_page(&mut self, address: usize) -> u8 {
-        if self.pc as usize > memory::MAX_MEM {
-            panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
-        }
-
-        self.memory.data[address]
-    }
-
     // read a byte from memory
     fn read_byte(&mut self, address: usize) -> u8 {
         self.memory.data[address]
@@ -107,7 +98,7 @@ impl Cpu {
     }
 
     // fetch a byte and increment the pc
-    fn fetch_and_increment_pc(&mut self) -> u8 {
+    fn fetch_byte(&mut self) -> u8 {
         if self.pc as usize > memory::MAX_MEM {
             panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
         }
@@ -120,8 +111,7 @@ impl Cpu {
     /* LOAD A INSTRUCTIONS */
     // load accumulator immediate mode
     fn lda_immediate(&mut self) {
-        let value = self.fetch_and_increment_pc();
-        self.a = value;
+        self.a = self.fetch_byte();
         self.lda_set_flags();
     }
 
@@ -148,33 +138,31 @@ impl Cpu {
 
     // load accumulator zero page
     fn lda_zp(&mut self) {
-        let zero_page_address = self.fetch_and_increment_pc();
-        self.a = self.fetch_zero_page(zero_page_address as usize);
+        let zero_page_address = self.fetch_byte();
+        self.a = self.read_byte(zero_page_address as usize);
         self.lda_set_flags();
     }
 
     // load accumulator zero page x indexed
     fn lda_zp_x(&mut self) {
-        let zero_page_address = self.fetch_and_increment_pc();
-        self.a = self.fetch_zero_page((zero_page_address) as usize) + self.x;
+        let zero_page_address = self.fetch_byte();
+        self.a = self.read_byte((zero_page_address) as usize) + self.x;
         self.lda_set_flags();
     }
 
     // load accumulator indexed zero page indirect
     fn lda_x_indexed_zero_page_indirect(&mut self) {
-        let indirect_address = self.fetch_and_increment_pc() + self.x;
+        let indirect_address = self.fetch_byte() + self.x;
         // & 0xFF will wrap to start of zero page if overflow
-        self.a = self.fetch_zero_page((indirect_address & 0xFF) as usize);
+        self.a = self.read_byte((indirect_address & 0xFF) as usize);
         self.lda_set_flags();
     }
 
     // load accumulator zero page indirect y indexed
     fn lda_y_zero_page_indirect_indexed(&mut self) {
-        let zero_page_address = self.fetch_and_increment_pc() + self.y;
-        dbg!(zero_page_address);
+        let zero_page_address = self.fetch_byte();
         let effective_address = self.read_word(zero_page_address as usize);
         let effective_address_y = effective_address + self.y as u16;
-        dbg!(effective_address_y);
         self.a = self.read_byte(effective_address_y as usize);
         self.lda_set_flags();
     }
@@ -340,15 +328,17 @@ mod tests {
     fn lda_zero_page_indirect_y_indexed_should_load_accumulator_register() {
         let mut cpu = Cpu::new().reset();
         // set the Y register to 10
-        cpu.y = 0x10;
+        cpu.y = 0x04;
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDA_ZP_IY;
-        cpu.memory.data[0xFFFD] = 0x86;
-        cpu.memory.data[0x0086] = 0x20;
+        cpu.memory.data[0xFFFD] = 0x02;
+        cpu.memory.data[0x0002] = 0x00;
+        cpu.memory.data[0x0003] = 0x80;
+        cpu.memory.data[0x8004] = 0x37;
         cpu.memory.data[0xFFFE] = NOP;
 
         cpu.execute();
-        assert_eq!(cpu.a, 0x20);
+        assert_eq!(cpu.a, 0x37);
     }
 
     #[test]
