@@ -160,8 +160,7 @@ impl Cpu {
     // load accumulator indexed zero page indirect
     fn lda_x_indexed_zero_page_indirect(&mut self) {
         let indirect_address = self.fetch_byte() + self.x;
-        // & 0xFF will wrap to start of zero page if overflow
-        self.a = self.read_byte((indirect_address & 0xFF) as usize);
+        self.a = self.read_byte(indirect_address as usize);
         self.lda_set_flags();
     }
 
@@ -177,9 +176,9 @@ impl Cpu {
     // set zero and negative flags whenever an LDA instruction is executed
     fn lda_set_flags(&mut self) {
         // set zero flag
-        self.ps.set(ProcessorStatus::Z, bool::from(self.a == 0));
+        self.ps.set(ProcessorStatus::Z, self.a == 0);
         self.ps
-            .set(ProcessorStatus::N, bool::from((self.a & 0b10000000) > 0));
+            .set(ProcessorStatus::N, (self.a & 0b10000000) > 0);
     }
 
     // jump to a subroutine by pushing the pc onto the stack and modifying the pc
