@@ -17,3 +17,5 @@ pub const LDA_ZP_XI: u8 = 0xA1;
 pub const LDA_ZP_IY: u8 = 0xB1;
 // no-op
 pub const NOP: u8 = 0xEA;
+// jump subroutine
+pub const JSR: u8 = 0x20;

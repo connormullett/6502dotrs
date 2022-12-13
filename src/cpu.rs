@@ -56,6 +56,7 @@ impl Cpu {
                 LDA_ZP_X => self.lda_zp_x(),
                 LDA_ZP_XI => self.lda_x_indexed_zero_page_indirect(),
                 LDA_ZP_IY => self.lda_y_zero_page_indirect_indexed(),
+                JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
                     panic!("unrecognized instruction: {instruction:02x}");
@@ -106,6 +107,12 @@ impl Cpu {
         let data = self.memory.data[self.pc as usize];
         self.pc += 1;
         data
+    }
+
+    // writes a word to memory at a given address
+    fn write_word(&mut self, address: usize, data: u16) {
+        self.memory.data[address] = (data & 0xFF) as u8;
+        self.memory.data[address + 1] = (data >> 8) as u8;
     }
 
     /* LOAD A INSTRUCTIONS */
@@ -175,6 +182,14 @@ impl Cpu {
             .set(ProcessorStatus::N, bool::from((self.a & 0b10000000) > 0));
     }
 
+    // jump to a subroutine by pushing the pc onto the stack and modifying the pc
+    fn jump_subroutine(&mut self) {
+        let sub_address = self.fetch_word();
+        self.write_word(self.sp as usize, (self.pc - 1));
+        self.sp -= 2;
+        self.pc = sub_address;
+    }
+
     // no-op
     fn nop(&mut self) {}
 }
@@ -188,6 +203,35 @@ mod tests {
     fn new_cpu_should_initialize_defaults() {
         let cpu = Cpu::new().reset();
         assert_eq!(cpu.pc, 0xFFFC);
+    }
+
+    #[test]
+    fn test_write_word_should_write_correct_data_to_memory() {
+        let data: u16 = 0b1111111100000000;
+        let mut cpu = Cpu::new().reset();
+        cpu.write_word(0xFFFC, data);
+        let word = cpu.read_word(0xFFFC);
+        assert_eq!(word, data);
+    }
+
+    #[test]
+    fn jump_subroutine_should_jump_to_new_address() {
+        let mut cpu = Cpu::new().reset();
+
+        // load a dummy program into memory
+        cpu.memory.data[0xFFFC] = JSR;
+        cpu.memory.data[0xFFFD] = 0x10;
+        cpu.memory.data[0xFFFE] = 0x00; // JSR 0x0010
+        cpu.memory.data[0x0010] = NOP;
+
+        cpu.execute();
+        // stack pointer should be 0xFF 0xFD (high byte first)
+        let expected_return_address = (cpu.sp + 2) as usize;
+        let stack_address = cpu.read_word(expected_return_address);
+        // should get to no-op
+        assert_eq!(cpu.pc, 0x0011);
+        // return to last byte of last instruction
+        assert_eq!(stack_address, 0xFFFE);
     }
 
     #[test]
