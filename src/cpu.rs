@@ -65,10 +65,16 @@ impl Cpu {
                 LDX_ZP => self.ldx_zp(),
                 LDX_ZP_Y => self.ldx_y_indexed_zero_page(),
                 LDX_ABS_Y => self.ldx_absolute_y_indexed(),
+                LDY_IM => self.ldy_immediate(),
+                LDY_ABS => self.ldy_absolute(),
+                LDY_ZP => self.ldy_zp(),
+                LDY_ZP_X => self.ldy_x_indexed_zero_page(),
+                LDY_ABS_X => self.ldy_absolute_x_indexed(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
-                    panic!("unrecognized instruction: {instruction:02x}");
+                    self.debug_print();
+                    panic!("reason: unrecognized instruction");
                 }
             }
         }
@@ -209,6 +215,41 @@ impl Cpu {
         self.set_negative_and_zero_flags();
     }
 
+    /* LOAD Y INSTRUCTIONS */
+    /// load y index immediate mode
+    fn ldy_immediate(&mut self) {
+        self.y = self.fetch_byte();
+        self.set_negative_and_zero_flags();
+    }
+
+    /// load y index absolute mode
+    fn ldy_absolute(&mut self) {
+        let abs_address = self.fetch_word();
+        self.y = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    /// load y index from zero page
+    fn ldy_zp(&mut self) {
+        let zero_page_address = self.fetch_byte();
+        self.y = self.memory.read_byte(zero_page_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    /// load y index x indexed absolute
+    fn ldy_absolute_x_indexed(&mut self) {
+        let abs_address = self.fetch_word() + self.x as u16;
+        self.y = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    /// load x index y indexed zero page
+    fn ldy_x_indexed_zero_page(&mut self) {
+        let zero_page_address = self.fetch_byte();
+        self.y = self.memory.read_byte((zero_page_address) as usize) + self.x;
+        self.set_negative_and_zero_flags();
+    }
+
     /// jump to a subroutine by pushing the pc onto the stack and modifying the pc
     fn jump_subroutine(&mut self) {
         let sub_address = self.fetch_word();
@@ -259,6 +300,82 @@ mod tests {
         assert_eq!(cpu.pc, 0x0011);
         // return to last byte of last instruction
         assert_eq!(stack_address, 0xFFFE);
+    }
+
+    #[test]
+    fn ldy_immediate_should_load_y_register() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDY_IM;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.y, 0x42);
+    }
+
+    #[test]
+    fn ldy_absolute_should_load_y_register() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDY_ABS;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4480] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.y, 0x37);
+    }
+
+    #[test]
+    fn ldy_absolute_x_indexed_should_load_y_register_with_correct_value() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // set y register
+        cpu.x = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDY_ABS_X;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4481] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.y, 0x37);
+    }
+
+    #[test]
+    fn ldy_zero_page_should_load_y_register() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDY_ZP;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0x0042] = 0x84;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.y, 0x84);
+    }
+
+    #[test]
+    fn ldy_zero_page_x_indexed_should_load_y_register() {
+        let mut cpu = Cpu::new().reset();
+        // set the X register to 1
+        cpu.x = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDY_ZP_X;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0x0042] = 0x84;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.y, 0x85);
     }
 
     #[test]
