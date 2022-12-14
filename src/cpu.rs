@@ -76,7 +76,7 @@ impl Cpu {
 
     /// print contents of registers, pc, sp, and status flags and current instruction
     /// useful when the emulator crashes, you can get a state of the machine
-    fn debug_print(&self) {
+    pub fn debug_print(&self) {
         println!("pc: 0x{:04x}", self.pc);
         println!("sp: 0x{:04x}", self.sp);
         println!("a : 0x{:04x}", self.a);
