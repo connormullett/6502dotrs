@@ -56,6 +56,11 @@ impl Cpu {
                 LDA_ZP_X => self.lda_zp_x(),
                 LDA_ZP_XI => self.lda_x_indexed_zero_page_indirect(),
                 LDA_ZP_IY => self.lda_y_zero_page_indirect_indexed(),
+                LDX_IM => self.ldx_immediate(),
+                LDX_ABS => self.ldx_absolute(),
+                LDX_ZP => self.ldx_zp(),
+                LDX_ZP_Y => self.ldx_y_indexed_zero_page(),
+                LDX_ABS_Y => self.ldx_absolute_y_indexed(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -73,18 +78,6 @@ impl Cpu {
         println!("x : 0x{:04x}", self.x);
         println!("y : 0x{:04x}", self.y);
         println!("ps: {}", self.ps);
-    }
-
-    // read a byte from memory
-    fn read_byte(&mut self, address: usize) -> u8 {
-        self.memory.data[address]
-    }
-
-    // read a word from memory
-    fn read_word(&mut self, address: usize) -> u16 {
-        let mut data = self.read_byte(address) as u16;
-        data |= u16::from(self.read_byte(address + 1)) << 8;
-        data
     }
 
     // fetch a word from memory while incrememting the pc each read (2 cycles)
@@ -109,82 +102,111 @@ impl Cpu {
         data
     }
 
-    // writes a word to memory at a given address
-    fn write_word(&mut self, address: usize, data: u16) {
-        self.memory.data[address] = (data & 0xFF) as u8;
-        self.memory.data[address + 1] = (data >> 8) as u8;
-    }
-
     /* LOAD A INSTRUCTIONS */
     // load accumulator immediate mode
     fn lda_immediate(&mut self) {
         self.a = self.fetch_byte();
-        self.lda_set_flags();
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator absolute
     fn lda_absolute(&mut self) {
         let abs_address = self.fetch_word();
-        self.a = self.read_byte(abs_address as usize);
-        self.lda_set_flags();
+        self.a = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator absolute x indexed
     fn lda_absolute_x_indexed(&mut self) {
         let abs_address = self.fetch_word() + self.x as u16;
-        self.a = self.read_byte(abs_address as usize);
-        self.lda_set_flags();
+        self.a = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator absolute y indexed
     fn lda_absolute_y_indexed(&mut self) {
         let abs_address = self.fetch_word() + self.y as u16;
-        self.a = self.read_byte(abs_address as usize);
-        self.lda_set_flags();
+        self.a = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator zero page
     fn lda_zp(&mut self) {
         let zero_page_address = self.fetch_byte();
-        self.a = self.read_byte(zero_page_address as usize);
-        self.lda_set_flags();
+        self.a = self.memory.read_byte(zero_page_address as usize);
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator zero page x indexed
     fn lda_zp_x(&mut self) {
         let zero_page_address = self.fetch_byte();
-        self.a = self.read_byte((zero_page_address) as usize) + self.x;
-        self.lda_set_flags();
+        self.a = self.memory.read_byte((zero_page_address) as usize) + self.x;
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator indexed zero page indirect
     fn lda_x_indexed_zero_page_indirect(&mut self) {
         let indirect_address = self.fetch_byte() + self.x;
-        self.a = self.read_byte(indirect_address as usize);
-        self.lda_set_flags();
+        self.a = self.memory.read_byte(indirect_address as usize);
+        self.set_negative_and_zero_flags();
     }
 
     // load accumulator zero page indirect y indexed
     fn lda_y_zero_page_indirect_indexed(&mut self) {
         let zero_page_address = self.fetch_byte();
-        let effective_address = self.read_word(zero_page_address as usize);
+        let effective_address = self.memory.read_word(zero_page_address as usize);
         let effective_address_y = effective_address + self.y as u16;
-        self.a = self.read_byte(effective_address_y as usize);
-        self.lda_set_flags();
+        self.a = self.memory.read_byte(effective_address_y as usize);
+        self.set_negative_and_zero_flags();
     }
 
     // set zero and negative flags whenever an LDA instruction is executed
-    fn lda_set_flags(&mut self) {
+    fn set_negative_and_zero_flags(&mut self) {
         // set zero flag
         self.ps.set(ProcessorStatus::Z, self.a == 0);
         self.ps
             .set(ProcessorStatus::N, (self.a & 0b10000000) > 0);
     }
 
+    /* LOAD X INSTRUCTIONS */
+    // load x index immediate mode
+    fn ldx_immediate(&mut self) {
+        self.x = self.fetch_byte();
+        self.set_negative_and_zero_flags();
+    }
+
+    // load x index absolute mode
+    fn ldx_absolute(&mut self) {
+        let abs_address = self.fetch_word();
+        self.x = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    // load x index from zero page
+    fn ldx_zp(&mut self) {
+        let zero_page_address = self.fetch_byte();
+        self.x = self.memory.read_byte(zero_page_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    // load x index y indexed absolute
+    fn ldx_absolute_y_indexed(&mut self) {
+        let abs_address = self.fetch_word() + self.y as u16;
+        self.x = self.memory.read_byte(abs_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    // load x index y indexed zero page
+    fn ldx_y_indexed_zero_page(&mut self) {
+        let zero_page_address = self.fetch_byte();
+        self.x = self.memory.read_byte((zero_page_address) as usize) + self.y;
+        self.set_negative_and_zero_flags();
+    }
+
     // jump to a subroutine by pushing the pc onto the stack and modifying the pc
     fn jump_subroutine(&mut self) {
         let sub_address = self.fetch_word();
-        self.write_word(self.sp as usize, (self.pc - 1));
+        self.memory.write_word(self.sp as usize, (self.pc - 1));
         self.sp -= 2;
         self.pc = sub_address;
     }
@@ -208,8 +230,8 @@ mod tests {
     fn test_write_word_should_write_correct_data_to_memory() {
         let data: u16 = 0b1111111100000000;
         let mut cpu = Cpu::new().reset();
-        cpu.write_word(0xFFFC, data);
-        let word = cpu.read_word(0xFFFC);
+        cpu.memory.write_word(0xFFFC, data);
+        let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
     }
 
@@ -226,11 +248,87 @@ mod tests {
         cpu.execute();
         // stack pointer should be 0xFF 0xFD (high byte first)
         let expected_return_address = (cpu.sp + 2) as usize;
-        let stack_address = cpu.read_word(expected_return_address);
+        let stack_address = cpu.memory.read_word(expected_return_address);
         // should get to no-op
         assert_eq!(cpu.pc, 0x0011);
         // return to last byte of last instruction
         assert_eq!(stack_address, 0xFFFE);
+    }
+
+    #[test]
+    fn ldx_immediate_should_load_x_register() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDX_IM;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0x42);
+    }
+
+    #[test]
+    fn ldx_absolute_should_load_x_register() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDX_ABS;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4480] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0x37);
+    }
+
+    #[test]
+    fn ldx_absolute_y_indexed_should_load_x_register_with_correct_value() {
+        let mut cpu = Cpu::new().reset();
+        // would overflow if ran from reset vector
+        // set PC to lower address
+        cpu.pc = 0xFFF0;
+        // set y register
+        cpu.y = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFF0] = LDX_ABS_Y;
+        cpu.memory.data[0xFFF1] = 0x80;
+        cpu.memory.data[0xFFF2] = 0x44; // 0x4480
+        cpu.memory.data[0x4481] = 0x37;
+        cpu.memory.data[0xFFF3] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0x37);
+    }
+
+    #[test]
+    fn ldx_zero_page_should_load_x_register() {
+        let mut cpu = Cpu::new().reset();
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDX_ZP;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0x0042] = 0x84;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0x84);
+    }
+
+    #[test]
+    fn ldx_zero_page_y_indexed_should_load_x_register() {
+        let mut cpu = Cpu::new().reset();
+        // set the X register to 1
+        cpu.y = 0x01;
+        // Load a dummy program into memory
+        cpu.memory.data[0xFFFC] = LDX_ZP_Y;
+        cpu.memory.data[0xFFFD] = 0x42;
+        cpu.memory.data[0x0042] = 0x84;
+        cpu.memory.data[0xFFFE] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0x85);
     }
 
     #[test]
@@ -390,7 +488,7 @@ mod tests {
         cpu.memory.data[0x44] = 0x20;
         cpu.memory.data[0x45] = 0x20;
 
-        let word = cpu.read_word(0x44);
+        let word = cpu.memory.read_word(0x44);
 
         assert_eq!(word, 0x2020);
     }
