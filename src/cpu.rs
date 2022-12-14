@@ -7,28 +7,30 @@ use crate::{
 
 #[derive(Debug, Default, Clone)]
 pub struct Cpu {
-    // program counter
+    /// program counter
     pc: u16,
-    // stack pointer
+    /// stack pointer
     sp: u16,
-    // accumulator
+    /// accumulator
     a: u8,
-    // x index register
+    /// x index register
     x: u8,
-    // y index register
+    /// y index register
     y: u8,
-    // processor status (bitfield)
+    /// processor status (bitfield)
     ps: ProcessorStatus,
 
-    // Memory module
+    /// Memory module
     pub memory: Memory,
 }
 
 impl Cpu {
+    /// construct a new cpu
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// reset the cpu to initial state
     pub fn reset(&mut self) -> Self {
         self.pc = 0xFFFC;
         self.sp = 0x0100;
@@ -40,10 +42,12 @@ impl Cpu {
         self.to_owned()
     }
 
+    /// load a program into the cpu's memory
     pub fn load_program(&mut self) {
         todo!()
     }
 
+    /// execute the program loaded in memory
     pub fn execute(&mut self) {
         loop {
             let instruction = self.fetch_byte();
@@ -70,7 +74,8 @@ impl Cpu {
         }
     }
 
-    // print contents of registers, pc, sp, and status flags
+    /// print contents of registers, pc, sp, and status flags and current instruction
+    /// useful when the emulator crashes, you can get a state of the machine
     fn debug_print(&self) {
         println!("pc: 0x{:04x}", self.pc);
         println!("sp: 0x{:04x}", self.sp);
@@ -78,9 +83,10 @@ impl Cpu {
         println!("x : 0x{:04x}", self.x);
         println!("y : 0x{:04x}", self.y);
         println!("ps: {}", self.ps);
+        println!("current instruction: 0x{:04x}", self.pc);
     }
 
-    // fetch a word from memory while incrememting the pc each read (2 cycles)
+    /// fetch a word from memory while incrememting the pc each read (2 cycles)
     fn fetch_word(&mut self) -> u16 {
         let mut data = self.memory.data[self.pc as usize] as u16;
         self.pc += 1;
@@ -91,7 +97,7 @@ impl Cpu {
         data
     }
 
-    // fetch a byte and increment the pc
+    /// fetch a byte and increment the pc
     fn fetch_byte(&mut self) -> u8 {
         if self.pc as usize > memory::MAX_MEM {
             panic!("PC exceeds max memory allocated {}", memory::MAX_MEM);
@@ -103,55 +109,55 @@ impl Cpu {
     }
 
     /* LOAD A INSTRUCTIONS */
-    // load accumulator immediate mode
+    /// load accumulator immediate mode
     fn lda_immediate(&mut self) {
         self.a = self.fetch_byte();
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator absolute
+    /// load accumulator absolute
     fn lda_absolute(&mut self) {
         let abs_address = self.fetch_word();
         self.a = self.memory.read_byte(abs_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator absolute x indexed
+    /// load accumulator absolute x indexed
     fn lda_absolute_x_indexed(&mut self) {
         let abs_address = self.fetch_word() + self.x as u16;
         self.a = self.memory.read_byte(abs_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator absolute y indexed
+    /// load accumulator absolute y indexed
     fn lda_absolute_y_indexed(&mut self) {
         let abs_address = self.fetch_word() + self.y as u16;
         self.a = self.memory.read_byte(abs_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator zero page
+    /// load accumulator zero page
     fn lda_zp(&mut self) {
         let zero_page_address = self.fetch_byte();
         self.a = self.memory.read_byte(zero_page_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator zero page x indexed
+    /// load accumulator zero page x indexed
     fn lda_zp_x(&mut self) {
         let zero_page_address = self.fetch_byte();
         self.a = self.memory.read_byte((zero_page_address) as usize) + self.x;
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator indexed zero page indirect
+    /// load accumulator indexed zero page indirect
     fn lda_x_indexed_zero_page_indirect(&mut self) {
         let indirect_address = self.fetch_byte() + self.x;
         self.a = self.memory.read_byte(indirect_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load accumulator zero page indirect y indexed
+    /// load accumulator zero page indirect y indexed
     fn lda_y_zero_page_indirect_indexed(&mut self) {
         let zero_page_address = self.fetch_byte();
         let effective_address = self.memory.read_word(zero_page_address as usize);
@@ -160,7 +166,7 @@ impl Cpu {
         self.set_negative_and_zero_flags();
     }
 
-    // set zero and negative flags whenever an LDA instruction is executed
+    /// set zero and negative flags whenever an LDA instruction is executed
     fn set_negative_and_zero_flags(&mut self) {
         // set zero flag
         self.ps.set(ProcessorStatus::Z, self.a == 0);
@@ -169,41 +175,41 @@ impl Cpu {
     }
 
     /* LOAD X INSTRUCTIONS */
-    // load x index immediate mode
+    /// load x index immediate mode
     fn ldx_immediate(&mut self) {
         self.x = self.fetch_byte();
         self.set_negative_and_zero_flags();
     }
 
-    // load x index absolute mode
+    /// load x index absolute mode
     fn ldx_absolute(&mut self) {
         let abs_address = self.fetch_word();
         self.x = self.memory.read_byte(abs_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load x index from zero page
+    /// load x index from zero page
     fn ldx_zp(&mut self) {
         let zero_page_address = self.fetch_byte();
         self.x = self.memory.read_byte(zero_page_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load x index y indexed absolute
+    /// load x index y indexed absolute
     fn ldx_absolute_y_indexed(&mut self) {
         let abs_address = self.fetch_word() + self.y as u16;
         self.x = self.memory.read_byte(abs_address as usize);
         self.set_negative_and_zero_flags();
     }
 
-    // load x index y indexed zero page
+    /// load x index y indexed zero page
     fn ldx_y_indexed_zero_page(&mut self) {
         let zero_page_address = self.fetch_byte();
         self.x = self.memory.read_byte((zero_page_address) as usize) + self.y;
         self.set_negative_and_zero_flags();
     }
 
-    // jump to a subroutine by pushing the pc onto the stack and modifying the pc
+    /// jump to a subroutine by pushing the pc onto the stack and modifying the pc
     fn jump_subroutine(&mut self) {
         let sub_address = self.fetch_word();
         self.memory.write_word(self.sp as usize, (self.pc - 1));
@@ -211,7 +217,7 @@ impl Cpu {
         self.pc = sub_address;
     }
 
-    // no-op
+    /// no-op (do nothing)
     fn nop(&mut self) {}
 }
 
