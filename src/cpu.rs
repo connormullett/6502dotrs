@@ -31,7 +31,10 @@ impl Cpu {
     }
 
     /// reset the cpu to initial state
-    pub fn reset(&mut self) -> Self {
+    /// an optional address can be given to give the
+    /// cpu a location to fetch instructions from after
+    /// the reset has finished
+    pub fn reset(&mut self, address: Option<u16>) -> Self {
         self.pc = 0xFFFC;
         self.sp = 0x0100;
         self.a = 0;
@@ -39,11 +42,18 @@ impl Cpu {
         self.y = 0;
         self.ps.clear();
 
+        // read 0xFFFC and 0xFFFD and
+        // jump to that address for instructions
+        if let Some(address) = address {
+            self.memory.write_word(self.pc as usize, address);
+            self.pc = self.memory.read_word(0xFFFC);
+        }
+
         self.to_owned()
     }
 
-    /// load a program into the cpu's memory
-    pub fn load_program(&mut self) {
+    /// load a program into the cpu's memory at a given address
+    pub fn load_program(&mut self, address: usize, program: Vec<u8>) {
         todo!()
     }
 
@@ -70,6 +80,7 @@ impl Cpu {
                 LDY_ZP => self.ldy_zp(),
                 LDY_ZP_X => self.ldy_x_indexed_zero_page(),
                 LDY_ABS_X => self.ldy_absolute_x_indexed(),
+                LSR_ACC => self.lsr_acc(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -258,6 +269,14 @@ impl Cpu {
         self.pc = sub_address;
     }
 
+    /// logical shift right accumulator mode
+    fn lsr_acc(&mut self) {
+        let carry = self.a >> 1 & 1;
+        self.a >>= 1;
+        self.ps.set(ProcessorStatus::C, carry == 1);
+        self.set_negative_and_zero_flags();
+    }
+
     /// no-op (do nothing)
     fn nop(&mut self) {}
 }
@@ -269,22 +288,41 @@ mod tests {
 
     #[test]
     fn new_cpu_should_initialize_defaults() {
-        let cpu = Cpu::new().reset();
+        let cpu = Cpu::new().reset(None);
         assert_eq!(cpu.pc, 0xFFFC);
+    }
+
+    #[test]
+    fn reset_cpu_with_address_should_fetch_from_correct_address() {
+        let cpu = Cpu::new().reset(0x0010.into());
+        assert_eq!(cpu.pc, 0x0010);
+
     }
 
     #[test]
     fn test_write_word_should_write_correct_data_to_memory() {
         let data: u16 = 0b1111111100000000;
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
     }
 
     #[test]
+    fn logical_shift_right_accumulator_should_shift_value_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0x02;
+        cpu.memory.data[0x0003] = LSR_ACC;
+        cpu.memory.data[0x0004] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0x01);
+    }
+
+    #[test]
     fn jump_subroutine_should_jump_to_new_address() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
 
         // load a dummy program into memory
         cpu.memory.data[0xFFFC] = JSR;
@@ -304,7 +342,7 @@ mod tests {
 
     #[test]
     fn ldy_immediate_should_load_y_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDY_IM;
         cpu.memory.data[0xFFFD] = 0x42;
@@ -316,7 +354,7 @@ mod tests {
 
     #[test]
     fn ldy_absolute_should_load_y_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -333,7 +371,7 @@ mod tests {
 
     #[test]
     fn ldy_absolute_x_indexed_should_load_y_register_with_correct_value() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -352,7 +390,7 @@ mod tests {
 
     #[test]
     fn ldy_zero_page_should_load_y_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDY_ZP;
         cpu.memory.data[0xFFFD] = 0x42;
@@ -365,7 +403,7 @@ mod tests {
 
     #[test]
     fn ldy_zero_page_x_indexed_should_load_y_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // set the X register to 1
         cpu.x = 0x01;
         // Load a dummy program into memory
@@ -380,7 +418,7 @@ mod tests {
 
     #[test]
     fn ldx_immediate_should_load_x_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDX_IM;
         cpu.memory.data[0xFFFD] = 0x42;
@@ -392,7 +430,7 @@ mod tests {
 
     #[test]
     fn ldx_absolute_should_load_x_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -409,7 +447,7 @@ mod tests {
 
     #[test]
     fn ldx_absolute_y_indexed_should_load_x_register_with_correct_value() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -428,7 +466,7 @@ mod tests {
 
     #[test]
     fn ldx_zero_page_should_load_x_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDX_ZP;
         cpu.memory.data[0xFFFD] = 0x42;
@@ -441,7 +479,7 @@ mod tests {
 
     #[test]
     fn ldx_zero_page_y_indexed_should_load_x_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // set the X register to 1
         cpu.y = 0x01;
         // Load a dummy program into memory
@@ -456,7 +494,7 @@ mod tests {
 
     #[test]
     fn lda_immediate_should_load_accumulator_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDA_IM;
         cpu.memory.data[0xFFFD] = 0x42;
@@ -468,7 +506,7 @@ mod tests {
 
     #[test]
     fn lda_absolute_should_load_accumulator_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -485,7 +523,7 @@ mod tests {
 
     #[test]
     fn lda_absolute_x_indexed_should_load_accumulator_with_correct_value() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -504,7 +542,7 @@ mod tests {
 
     #[test]
     fn lda_absolute_y_indexed_should_load_accumulator_with_correct_value() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // would overflow if ran from reset vector
         // set PC to lower address
         cpu.pc = 0xFFF0;
@@ -523,7 +561,7 @@ mod tests {
 
     #[test]
     fn lda_zero_should_set_zero_flag() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDA_IM;
         cpu.memory.data[0xFFFD] = 0x00;
@@ -535,7 +573,7 @@ mod tests {
 
     #[test]
     fn lda_seventh_bit_set_should_raise_negative_flag() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDA_IM;
         cpu.memory.data[0xFFFD] = 0b10000001;
@@ -547,7 +585,7 @@ mod tests {
 
     #[test]
     fn lda_zero_page_should_load_accumulator_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // Load a dummy program into memory
         cpu.memory.data[0xFFFC] = LDA_ZP;
         cpu.memory.data[0xFFFD] = 0x42;
@@ -560,7 +598,7 @@ mod tests {
 
     #[test]
     fn lda_zero_page_x_indexed_should_load_accumulator_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // set the X register to 1
         cpu.x = 0x01;
         // Load a dummy program into memory
@@ -575,7 +613,7 @@ mod tests {
 
     #[test]
     fn lda_zero_page_x_indexed_indirect_should_load_accumulator_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // set the X register to 1
         cpu.x = 0x04;
         // Load a dummy program into memory
@@ -590,7 +628,7 @@ mod tests {
 
     #[test]
     fn lda_zero_page_indirect_y_indexed_should_load_accumulator_register() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         // set the Y register to 10
         cpu.y = 0x04;
         // Load a dummy program into memory
@@ -607,7 +645,7 @@ mod tests {
 
     #[test]
     fn read_word() {
-        let mut cpu = Cpu::new().reset();
+        let mut cpu = Cpu::new().reset(None);
         cpu.memory.data[0x44] = 0x20;
         cpu.memory.data[0x45] = 0x20;
 
