@@ -85,6 +85,7 @@ impl Cpu {
                 LSR_ACC => self.lsr_acc(),
                 LSR_ABS => self.lsr_abs(),
                 LSR_ZP => self.lsr_zp(),
+                LSR_ABS_X => self.lsr_abs_x(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -302,6 +303,18 @@ impl Cpu {
         self.set_negative_and_zero_flags();
     }
 
+    /// logical shift right absolute x indexed
+    fn lsr_abs_x(&mut self) {
+        let abs_address = self.fetch_word() as usize;
+        let effective_address = abs_address + self.x as usize;
+        let data = self.memory.read_byte(effective_address);
+
+        self.memory.write_byte(effective_address, data >> 1);
+
+        self.set_negative_and_zero_flags();
+        self.set_carry_flag((data & 1) > 0);
+    }
+
     /// sets the carry bit if flag is true in processor status register
     fn set_carry_flag(&mut self, flag: bool) {
         self.ps.set(ProcessorStatus::C, flag);
@@ -343,6 +356,23 @@ mod tests {
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn logical_shift_right_absolute_x_indexed_should_shift_value_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0011] = 0x02;
+        cpu.memory.data[0x0001] = LDX_IM;
+        cpu.memory.data[0x0002] = 0x01;
+        cpu.memory.data[0x0003] = LSR_ABS_X;
+        cpu.memory.data[0x0004] = 0x10;
+        cpu.memory.data[0x0005] = 0x00; // 0x0010
+        cpu.memory.data[0x0006] = NOP;
+
+        cpu.execute();
+        let address = cpu.memory.read_byte(0x011); //0x10 + 1
+        assert_eq!(address, 0x01);
     }
 
     #[test]
