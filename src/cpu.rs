@@ -285,12 +285,11 @@ impl Cpu {
     fn lsr_abs(&mut self) {
         let abs_address = self.fetch_word() as usize;
         let data = self.memory.read_byte(abs_address);
-        let carry = (data & 0b1);
 
         self.memory.write_byte(abs_address, data >> 1);
 
         self.set_negative_and_zero_flags();
-        self.set_carry_flag(carry > 0);
+        self.set_carry_flag((data & 1) > 0);
     }
 
     fn set_carry_flag(&mut self, flag: bool) {
@@ -374,6 +373,7 @@ mod tests {
         assert_eq!(format!("{}", cpu.ps), "00000000");
     }
 
+    #[test]
     fn logical_shift_right_should_reset_negative_flag() {
         let mut cpu = Cpu::new().reset(0x0001.into());
         cpu.memory.data[0x0001] = LDA_IM;
@@ -382,7 +382,19 @@ mod tests {
         cpu.memory.data[0x0004] = NOP;
 
         cpu.execute();
-        assert_eq!(format!("{}", cpu.ps), "00000001");
+        assert_eq!(format!("{}", cpu.ps), "00000000");
+    }
+
+    #[test]
+    fn logical_shift_right_should_set_carry_and_zero_flags() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0b0001;
+        cpu.memory.data[0x0003] = LSR_ACC;
+        cpu.memory.data[0x0004] = NOP;
+
+        cpu.execute();
+        assert_eq!(format!("{}", cpu.ps), "00000011");
     }
 
     #[test]
