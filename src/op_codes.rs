@@ -56,3 +56,7 @@ pub const LSR_ZP_X: u8 = 0x56;
 pub const PHA: u8 = 0x48;
 /// push processor status on the stack
 pub const PHP: u8 = 0x08;
+/// pop accumulator on the stack
+pub const PLA: u8 = 0x68;
+/// pop processor status on the stack
+pub const PLP: u8 = 0x28;

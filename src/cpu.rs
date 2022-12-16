@@ -89,6 +89,8 @@ impl Cpu {
                 LSR_ZP_X => self.lsr_zp_x(),
                 PHA => self.pha(),
                 PHP => self.php(),
+                PLA => self.pla(),
+                PLP => self.plp(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -363,6 +365,20 @@ impl Cpu {
         self.sp -= 1;
     }
 
+    /// pop accumulator from stack
+    fn pla(&mut self) {
+        self.sp += 1;
+        self.a = self.memory.read_byte(self.sp as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    /// pop processor status from stack
+    fn plp(&mut self) {
+        self.sp += 1;
+        let ps = self.memory.read_byte(self.sp as usize);
+        self.ps = ProcessorStatus::from_bits_truncate(ps);
+    }
+
     /// no-op (do nothing)
     fn nop(&mut self) {}
 }
@@ -399,6 +415,36 @@ mod tests {
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn pop_accumulator_should_push_a_register_onto_stack() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = PHA;
+        cpu.memory.data[0x0004] = LDA_IM;
+        cpu.memory.data[0x0005] = 0x00;
+        cpu.memory.data[0x0006] = PLA;
+        cpu.memory.data[0x0007] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn pop_processor_status_should_push_ps_register_onto_stack() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.memory.write_byte(cpu.sp as usize, 0b1101_1111);
+        cpu.sp -= 1;
+        cpu.memory.data[0x0001] = PLP;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.ps.bits(), ProcessorStatus::all().bits());
     }
 
     #[test]
