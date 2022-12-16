@@ -84,6 +84,7 @@ impl Cpu {
                 LDY_ABS_X => self.ldy_absolute_x_indexed(),
                 LSR_ACC => self.lsr_acc(),
                 LSR_ABS => self.lsr_abs(),
+                LSR_ZP => self.lsr_zp(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -103,7 +104,7 @@ impl Cpu {
         println!("x : 0x{:04x}", self.x);
         println!("y : 0x{:04x}", self.y);
         println!("ps: {}", self.ps);
-        println!("current instruction: 0x{:04x}", self.pc);
+        println!("current instruction: 0x{:02X}", self.memory.read_byte(self.pc as usize));
     }
 
     /// fetch a word from memory while incrememting the pc each read (2 cycles)
@@ -292,6 +293,16 @@ impl Cpu {
         self.set_carry_flag((data & 1) > 0);
     }
 
+    /// logical shift right zero page
+    fn lsr_zp(&mut self) {
+        let zero_page_address = self.fetch_byte() as usize;
+        let data = self.memory.read_byte(zero_page_address);
+        self.memory.write_byte(zero_page_address, data >> 1);
+        self.set_carry_flag((data & 1) > 0);
+        self.set_negative_and_zero_flags();
+    }
+
+    /// sets the carry bit if flag is true in processor status register
     fn set_carry_flag(&mut self, flag: bool) {
         self.ps.set(ProcessorStatus::C, flag);
     }
@@ -332,6 +343,20 @@ mod tests {
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn logical_shift_right_zero_page_should_shift_value_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0010] = 0x02;
+        cpu.memory.data[0x0001] = LSR_ZP;
+        cpu.memory.data[0x0002] = 0x10;
+        cpu.memory.data[0x0003] = NOP;
+
+        cpu.execute();
+        let address = cpu.memory.read_byte(0x010);
+        assert_eq!(address, 0x01);
     }
 
     #[test]

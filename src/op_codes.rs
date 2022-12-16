@@ -46,3 +46,5 @@ pub const JSR: u8 = 0x20;
 pub const LSR_ACC: u8 = 0x4A;
 /// logical shift right absolute
 pub const LSR_ABS: u8 = 0x4E;
+/// logical shift right zero page
+pub const LSR_ZP: u8 = 0x46;
