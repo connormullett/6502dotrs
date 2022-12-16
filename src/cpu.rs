@@ -289,33 +289,49 @@ impl Cpu {
     /// logical shift right absolute mode
     fn lsr_abs(&mut self) {
         let abs_address = self.fetch_word() as usize;
-        let data = self.memory.read_byte(abs_address);
+        let mut data = self.memory.read_byte(abs_address);
 
-        self.memory.write_byte(abs_address, data >> 1);
+        let carry = data & 1;
+        data >>= 1;
 
-        self.set_negative_and_zero_flags();
-        self.set_carry_flag((data & 1) > 0);
+        self.memory.write_byte(abs_address, data);
+
+        // set flags
+        self.ps.set(ProcessorStatus::N, false);
+        self.ps.set(ProcessorStatus::Z, data == 0);
+        self.set_carry_flag(carry > 0);
     }
 
     /// logical shift right zero page
     fn lsr_zp(&mut self) {
         let zero_page_address = self.fetch_byte() as usize;
-        let data = self.memory.read_byte(zero_page_address);
-        self.memory.write_byte(zero_page_address, data >> 1);
-        self.set_carry_flag((data & 1) > 0);
-        self.set_negative_and_zero_flags();
+        let mut data = self.memory.read_byte(zero_page_address);
+
+        let carry = data & 1;
+        data >>= 1;
+        self.memory.write_byte(zero_page_address, data);
+
+        // set flags
+        self.ps.set(ProcessorStatus::N, false);
+        self.ps.set(ProcessorStatus::Z, data == 0);
+        self.set_carry_flag(carry > 0);
     }
 
     /// logical shift right absolute x indexed
     fn lsr_abs_x(&mut self) {
         let abs_address = self.fetch_word() as usize;
         let effective_address = abs_address + self.x as usize;
-        let data = self.memory.read_byte(effective_address);
 
-        self.memory.write_byte(effective_address, data >> 1);
+        let mut data = self.memory.read_byte(effective_address);
+        let carry = data & 1;
+        data >>= 1;
 
-        self.set_negative_and_zero_flags();
-        self.set_carry_flag((data & 1) > 0);
+        self.memory.write_byte(effective_address, data);
+
+        // set flags
+        self.ps.set(ProcessorStatus::N, false);
+        self.ps.set(ProcessorStatus::Z, data == 0);
+        self.set_carry_flag(carry > 0);
     }
 
     /// logical shift right zero page x indexed
@@ -458,6 +474,19 @@ mod tests {
         cpu.execute();
         let address = cpu.memory.read_byte(0x010);
         assert_eq!(address, 0x01);
+    }
+
+    #[test]
+    fn logical_shift_right_zero_page_should_set_correct_flags() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0010] = 0x01;
+        cpu.memory.data[0x0001] = LSR_ZP;
+        cpu.memory.data[0x0002] = 0x10;
+        cpu.memory.data[0x0003] = NOP;
+        
+        cpu.execute();
+        assert_eq!(cpu.ps, ProcessorStatus::Z | ProcessorStatus::C);
     }
 
     #[test]
