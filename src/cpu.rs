@@ -110,7 +110,10 @@ impl Cpu {
         println!("x : 0x{:04x}", self.x);
         println!("y : 0x{:04x}", self.y);
         println!("ps: {}", self.ps);
-        println!("current instruction: 0x{:02X}", self.memory.read_byte(self.pc as usize));
+        println!(
+            "current instruction: 0x{:02X}",
+            self.memory.read_byte(self.pc as usize)
+        );
     }
 
     /// fetch a word from memory while incrememting the pc each read (2 cycles)
@@ -197,8 +200,7 @@ impl Cpu {
     fn set_negative_and_zero_flags(&mut self) {
         // set zero flag
         self.ps.set(ProcessorStatus::Z, self.a == 0);
-        self.ps
-            .set(ProcessorStatus::N, (self.a & 0b10000000) > 0);
+        self.ps.set(ProcessorStatus::N, (self.a & 0b10000000) > 0);
     }
 
     /* LOAD X INSTRUCTIONS */
@@ -287,7 +289,7 @@ impl Cpu {
         self.set_negative_and_zero_flags();
         self.set_carry_flag(carry > 0);
     }
-    
+
     /// logical shift right absolute mode
     fn lsr_abs(&mut self) {
         let abs_address = self.fetch_word() as usize;
@@ -530,7 +532,7 @@ mod tests {
         cpu.memory.data[0x0001] = LSR_ZP;
         cpu.memory.data[0x0002] = 0x10;
         cpu.memory.data[0x0003] = NOP;
-        
+
         cpu.execute();
         assert_eq!(cpu.ps, ProcessorStatus::Z | ProcessorStatus::C);
     }
