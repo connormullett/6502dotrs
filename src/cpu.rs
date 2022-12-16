@@ -87,6 +87,8 @@ impl Cpu {
                 LSR_ZP => self.lsr_zp(),
                 LSR_ABS_X => self.lsr_abs_x(),
                 LSR_ZP_X => self.lsr_zp_x(),
+                PHA => self.pha(),
+                PHP => self.php(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -333,6 +335,18 @@ impl Cpu {
         self.ps.set(ProcessorStatus::C, flag);
     }
 
+    /// push accumulator on the stack
+    fn pha(&mut self) {
+        self.memory.write_byte(self.sp as usize, self.a);
+        self.sp -= 1;
+    }
+
+    /// push processor status on the stack
+    fn php(&mut self) {
+        self.memory.write_byte(self.sp as usize, self.ps.bits());
+        self.sp -= 1;
+    }
+
     /// no-op (do nothing)
     fn nop(&mut self) {}
 }
@@ -369,6 +383,34 @@ mod tests {
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn push_accumulator_should_push_a_register_onto_stack() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = PHA;
+        cpu.memory.data[0x0004] = NOP;
+
+        cpu.execute();
+        let accumulator = cpu.memory.read_byte((cpu.sp + 1) as usize);
+
+        assert_eq!(accumulator, 0xFF);
+    }
+
+    #[test]
+    fn push_processor_status_should_push_ps_register_onto_stack() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.ps = ProcessorStatus::all();
+        cpu.memory.data[0x0001] = PHP;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        let ps = cpu.memory.read_byte((cpu.sp + 1) as usize);
+
+        assert_eq!(ps, ProcessorStatus::all().bits());
     }
 
     #[test]

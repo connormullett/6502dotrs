@@ -52,3 +52,7 @@ pub const LSR_ZP: u8 = 0x46;
 pub const LSR_ABS_X: u8 = 0x5E;
 /// logical shift right zero page x indexed
 pub const LSR_ZP_X: u8 = 0x56;
+/// push accumulator on the stack
+pub const PHA: u8 = 0x48;
+/// push processor status on the stack
+pub const PHP: u8 = 0x08;
