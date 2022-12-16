@@ -50,3 +50,5 @@ pub const LSR_ABS: u8 = 0x4E;
 pub const LSR_ZP: u8 = 0x46;
 /// logical shift right absolute x indexed
 pub const LSR_ABS_X: u8 = 0x5E;
+/// logical shift right zero page x indexed
+pub const LSR_ZP_X: u8 = 0x56;
