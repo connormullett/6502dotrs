@@ -44,3 +44,5 @@ pub const NOP: u8 = 0xEA;
 pub const JSR: u8 = 0x20;
 /// logical shift right accumulator
 pub const LSR_ACC: u8 = 0x4A;
+/// logical shift right absolute
+pub const LSR_ABS: u8 = 0x4E;

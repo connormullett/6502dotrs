@@ -1,4 +1,6 @@
 #![allow(unused)]
+use std::ops::Shr;
+
 use crate::{
     memory::{self, Memory},
     op_codes::*,
@@ -81,6 +83,7 @@ impl Cpu {
                 LDY_ZP_X => self.ldy_x_indexed_zero_page(),
                 LDY_ABS_X => self.ldy_absolute_x_indexed(),
                 LSR_ACC => self.lsr_acc(),
+                LSR_ABS => self.lsr_abs(),
                 JSR => self.jump_subroutine(),
                 NOP => break,
                 _ => {
@@ -269,12 +272,29 @@ impl Cpu {
         self.pc = sub_address;
     }
 
+    /* logical shift right instructions */
     /// logical shift right accumulator mode
     fn lsr_acc(&mut self) {
-        let carry = self.a >> 1 & 1;
+        let carry = self.a & 1;
         self.a >>= 1;
-        self.ps.set(ProcessorStatus::C, carry == 1);
         self.set_negative_and_zero_flags();
+        self.set_carry_flag(carry > 0);
+    }
+    
+    /// logical shift right absolute mode
+    fn lsr_abs(&mut self) {
+        let abs_address = self.fetch_word() as usize;
+        let data = self.memory.read_byte(abs_address);
+        let carry = (data & 0b1);
+
+        self.memory.write_byte(abs_address, data >> 1);
+
+        self.set_negative_and_zero_flags();
+        self.set_carry_flag(carry > 0);
+    }
+
+    fn set_carry_flag(&mut self, flag: bool) {
+        self.ps.set(ProcessorStatus::C, flag);
     }
 
     /// no-op (do nothing)
@@ -285,6 +305,7 @@ impl Cpu {
 mod tests {
     use super::Cpu;
     use crate::op_codes::*;
+    use crate::processor_status::ProcessorStatus;
 
     #[test]
     fn new_cpu_should_initialize_defaults() {
@@ -296,16 +317,37 @@ mod tests {
     fn reset_cpu_with_address_should_fetch_from_correct_address() {
         let cpu = Cpu::new().reset(0x0010.into());
         assert_eq!(cpu.pc, 0x0010);
-
     }
 
     #[test]
-    fn test_write_word_should_write_correct_data_to_memory() {
+    fn set_carry_flag_should_set_correct_bit() {
+        let mut cpu = Cpu::new().reset(None);
+        cpu.set_carry_flag(true);
+        assert_eq!(cpu.ps, ProcessorStatus::C)
+    }
+
+    #[test]
+    fn write_word_should_write_correct_data_to_memory() {
         let data: u16 = 0b1111111100000000;
         let mut cpu = Cpu::new().reset(None);
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn logical_shift_right_absolute_should_shift_value_at_address_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0100] = 0x02;
+        cpu.memory.data[0x0001] = LSR_ABS;
+        cpu.memory.data[0x0002] = 0x00;
+        cpu.memory.data[0x0003] = 0x01; // 0x0100
+        cpu.memory.data[0x0004] = NOP;
+
+        cpu.execute();
+        let address = cpu.memory.read_byte(0x0100);
+        assert_eq!(address, 0x01);
     }
 
     #[test]
@@ -318,6 +360,29 @@ mod tests {
 
         cpu.execute();
         assert_eq!(cpu.a, 0x01);
+    }
+
+    #[test]
+    fn logical_shift_right_should_set_carry_flag() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0x02;
+        cpu.memory.data[0x0003] = LSR_ACC;
+        cpu.memory.data[0x0004] = NOP;
+
+        cpu.execute();
+        assert_eq!(format!("{}", cpu.ps), "00000000");
+    }
+
+    fn logical_shift_right_should_reset_negative_flag() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0b1000;
+        cpu.memory.data[0x0003] = LSR_ACC;
+        cpu.memory.data[0x0004] = NOP;
+
+        cpu.execute();
+        assert_eq!(format!("{}", cpu.ps), "00000001");
     }
 
     #[test]
