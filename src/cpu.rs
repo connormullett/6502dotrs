@@ -339,7 +339,14 @@ impl Cpu {
     }
 
     /// OR accumulator zero page indirect y indexed
-    fn ora_zp_iy(&mut self) {}
+    fn ora_zp_iy(&mut self) {
+        let zero_page_address = self.fetch_byte();
+        let indirect_address = self.memory.read_word(zero_page_address as usize);
+        let effective_address = indirect_address + self.y as u16;
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a |= value;
+        self.set_negative_and_zero_flags();
+    }
 
     /// OR accumulator zero page x indexed indirect
     fn ora_zp_xi(&mut self) {

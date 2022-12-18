@@ -29,13 +29,13 @@ pub const LDX_ZP_Y: u8 = 0xB6;
 
 /// load y immediate
 pub const LDY_IM: u8 = 0xA0;
-/// load x index absolute
+/// load y index absolute
 pub const LDY_ABS: u8 = 0xAC;
-/// load x index y indexed absolute
+/// load y index x indexed absolute
 pub const LDY_ABS_X: u8 = 0xBC;
-/// load x index zero page
+/// load y index zero page
 pub const LDY_ZP: u8 = 0xA4;
-/// load x index y indexed zero page
+/// load y index x indexed zero page
 pub const LDY_ZP_X: u8 = 0xB4;
 
 /// no-op
