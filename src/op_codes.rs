@@ -42,6 +42,8 @@ pub const LDY_ZP_X: u8 = 0xB4;
 pub const NOP: u8 = 0xEA;
 /// jump subroutine
 pub const JSR: u8 = 0x20;
+/// return from subroutine
+pub const RTS: u8 = 0x60;
 /// logical shift right accumulator
 pub const LSR_ACC: u8 = 0x4A;
 /// logical shift right absolute

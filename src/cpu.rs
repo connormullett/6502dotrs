@@ -92,6 +92,7 @@ impl Cpu {
                 PLA => self.pla(),
                 PLP => self.plp(),
                 JSR => self.jump_subroutine(),
+                RTS => self.return_subroutine(),
                 ORA_IM => self.ora_im(),
                 ORA_ABS => self.ora_abs(),
                 ORA_X_ABS => self.ora_abs_x(),
@@ -287,6 +288,15 @@ impl Cpu {
         self.memory.write_word(self.sp as usize, (self.pc - 1));
         self.sp -= 2;
         self.pc = sub_address;
+    }
+
+    /// return from subroutine, taking PC from stack and continuing before the jump
+    fn return_subroutine(&mut self) {
+        self.sp += 1;
+        let pch = self.memory.read_byte(self.sp as usize);
+        self.sp += 1;
+        let pcl = self.memory.read_byte(self.sp as usize);
+        self.pc = (((pch as u16) << 8) | pcl as u16) + 1;
     }
 
     /* OR Accumulator logical instructions */
@@ -832,6 +842,23 @@ mod tests {
         assert_eq!(cpu.pc, 0x0011);
         // return to last byte of last instruction
         assert_eq!(stack_address, 0xFFFE);
+    }
+
+    #[test]
+    fn return_subroutine_should_grab_instructions_from_where_pc_was_left_on_stack() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = JSR;
+        cpu.memory.data[0x0002] = 0x00;
+        cpu.memory.data[0x0003] = 0x10; // 0x0100
+        cpu.memory.data[0x0004] = NOP;
+        cpu.memory.data[0x1000] = LDA_IM;
+        cpu.memory.data[0x1001] = 0x01;
+        cpu.memory.data[0x1002] = RTS;
+
+        cpu.execute();
+
+        assert_eq!(cpu.pc, 0x05);
     }
 
     #[test]
