@@ -44,6 +44,7 @@ pub const NOP: u8 = 0xEA;
 pub const JSR: u8 = 0x20;
 /// return from subroutine
 pub const RTS: u8 = 0x60;
+
 /// logical shift right accumulator
 pub const LSR_ACC: u8 = 0x4A;
 /// logical shift right absolute
@@ -54,6 +55,7 @@ pub const LSR_ZP: u8 = 0x46;
 pub const LSR_ABS_X: u8 = 0x5E;
 /// logical shift right zero page x indexed
 pub const LSR_ZP_X: u8 = 0x56;
+
 /// push accumulator on the stack
 pub const PHA: u8 = 0x48;
 /// push processor status on the stack
@@ -62,19 +64,38 @@ pub const PHP: u8 = 0x08;
 pub const PLA: u8 = 0x68;
 /// pop processor status on the stack
 pub const PLP: u8 = 0x28;
+
 /// or accumulator immediate
-pub const ORA_IM: u8 = 0x09;
+pub const ANDA_IM: u8 = 0x29;
 /// or accumulator absolute
-pub const ORA_ABS: u8 = 0x0D;
+pub const ANDA_ABS: u8 = 0x2D;
 /// or accumulator x indexed absolute
-pub const ORA_X_ABS: u8 = 0x1D;
+pub const ANDA_X_ABS: u8 = 0x3D;
 /// or accumulator y indexed absolute
-pub const ORA_Y_ABS: u8 = 0x19;
+pub const ANDA_Y_ABS: u8 = 0x39;
 /// or accumulator zero page
-pub const ORA_ZP: u8 = 0x05;
+pub const ANDA_ZP: u8 = 0x25;
 /// or accumulator x indexed zero page
-pub const ORA_ZP_X: u8 = 0x15;
+pub const ANDA_ZP_X: u8 = 0x35;
 /// or accumulator x indexed zero page indirect
-pub const ORA_ZP_XI: u8 = 0x01;
+pub const ANDA_ZP_XI: u8 = 0x21;
 /// or accumulator zero page indirect y indexed
+pub const ANDA_ZP_IY: u8 = 0x31;
+
+/// and accumulator immediate
+pub const ORA_IM: u8 = 0x09;
+/// and accumulator absolute
+pub const ORA_ABS: u8 = 0x0D;
+/// and accumulator x indexed absolute
+pub const ORA_X_ABS: u8 = 0x1D;
+/// and accumulator y indexed absolute
+pub const ORA_Y_ABS: u8 = 0x19;
+/// and accumulator zero page
+pub const ORA_ZP: u8 = 0x05;
+/// and accumulator x indexed zero page
+pub const ORA_ZP_X: u8 = 0x15;
+/// and accumulator x indexed zero page indirect
+pub const ORA_ZP_XI: u8 = 0x01;
+/// and accumulator zero page indirect y indexed
 pub const ORA_ZP_IY: u8 = 0x11;
+

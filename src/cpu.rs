@@ -93,6 +93,14 @@ impl Cpu {
                 PLP => self.plp(),
                 JSR => self.jump_subroutine(),
                 RTS => self.return_subroutine(),
+                ANDA_IM => self.anda_im(),
+                ANDA_ABS => self.anda_abs(),
+                ANDA_X_ABS => self.anda_abs_x(),
+                ANDA_Y_ABS => self.anda_abs_y(),
+                ANDA_ZP => self.anda_zp(),
+                ANDA_ZP_X => self.anda_zp_x(),
+                ANDA_ZP_IY => self.anda_zp_iy(),
+                ANDA_ZP_XI => self.anda_zp_xi(),
                 ORA_IM => self.ora_im(),
                 ORA_ABS => self.ora_abs(),
                 ORA_X_ABS => self.ora_abs_x(),
@@ -297,6 +305,75 @@ impl Cpu {
         self.sp += 1;
         let pcl = self.memory.read_byte(self.sp as usize);
         self.pc = (((pch as u16) << 8) | pcl as u16) + 1;
+    }
+
+    /* AND Accumulator logical instructions */
+    /// AND accumulator immediate mode
+    fn anda_im(&mut self) {
+        self.a &= self.fetch_byte();
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator absolute mode
+    fn anda_abs(&mut self) {
+        let absolute_address = self.fetch_word();
+        let value = self.memory.read_byte(absolute_address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator absolute x indexed
+    fn anda_abs_x(&mut self) {
+        let absolute_address = self.fetch_word();
+        let effective_address = absolute_address + self.x as u16;
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator absolute y indexed
+    fn anda_abs_y(&mut self) {
+        let absolute_address = self.fetch_word();
+        let effective_address = absolute_address + self.y as u16;
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator zero page
+    fn anda_zp(&mut self) {
+        let address = self.fetch_byte();
+        let value = self.memory.read_byte(address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator zero page x indexed
+    fn anda_zp_x(&mut self) {
+        let address = self.fetch_byte();
+        let effective_address = address + self.x;
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator zero page indirect y indexed
+    fn anda_zp_iy(&mut self) {
+        let zero_page_address = self.fetch_byte();
+        let indirect_address = self.memory.read_word(zero_page_address as usize) + self.y as u16;
+        let value = self.memory.read_byte(indirect_address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// AND accumulator zero page x indexed indirect
+    fn anda_zp_xi(&mut self) {
+        let address = self.fetch_byte();
+        let indirect_address = address + self.x;
+        let effective_address = self.memory.read_word(indirect_address as usize);
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a &= value;
+        self.set_negative_and_zero_flags();
     }
 
     /* OR Accumulator logical instructions */
@@ -504,6 +581,142 @@ mod tests {
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn anda_immediate_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = ANDA_IM;
+        cpu.memory.data[0x0004] = 0xFF;
+        cpu.memory.data[0x0005] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_absolute_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0020] = 0xFF;
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = ORA_ABS;
+        cpu.memory.data[0x0004] = 0x20;
+        cpu.memory.data[0x0005] = 0x00;
+        cpu.memory.data[0x0006] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_absolute_x_indexed_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.x = 0x01;
+
+        cpu.memory.data[0x0021] = 0xFF;
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = ORA_X_ABS;
+        cpu.memory.data[0x0004] = 0x20;
+        cpu.memory.data[0x0005] = 0x00;
+        cpu.memory.data[0x0006] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_absolute_y_indexed_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.y = 0x01;
+
+        cpu.memory.data[0x0021] = 0xFF;
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = ORA_Y_ABS;
+        cpu.memory.data[0x0004] = 0x20;
+        cpu.memory.data[0x0005] = 0x00;
+        cpu.memory.data[0x0006] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_zero_page_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = ORA_ZP;
+        cpu.memory.data[0x0004] = 0xF0;
+        cpu.memory.data[0x00F0] = 0xFF;
+        cpu.memory.data[0x0005] = NOP;
+
+        cpu.execute();
+
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_zero_page_x_indexed_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.x = 0x01;
+
+        cpu.memory.data[0x00F1] = 0xFF;
+        cpu.memory.data[0x0001] = LDA_IM;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = ORA_ZP_X;
+        cpu.memory.data[0x0004] = 0xF0;
+        cpu.memory.data[0x0005] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_zero_page_indirect_y_indexed_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.a = 0xFF;
+        cpu.y = 0x01;
+
+        cpu.memory.data[0x0011] = 0x00;
+        cpu.memory.data[0x0012] = 0xFF;
+        cpu.memory.data[0xFF01] = 0xFF;
+
+        cpu.memory.data[0x0001] = ORA_ZP_IY;
+        cpu.memory.data[0x0002] = 0x11;
+        cpu.memory.data[0x0003] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn anda_zero_page_x_indexed_indirect_should_perform_bitwise_or_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.a = 0xFF;
+        cpu.x = 0x01;
+
+        cpu.memory.data[0x0012] = 0x00;
+        cpu.memory.data[0x0013] = 0xFF;
+        cpu.memory.data[0xFF00] = 0xFF;
+
+        cpu.memory.data[0x0001] = ORA_ZP_XI;
+        cpu.memory.data[0x0002] = 0x11;
+        cpu.memory.data[0x0003] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
     }
 
     #[test]
