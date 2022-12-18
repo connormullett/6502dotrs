@@ -60,3 +60,19 @@ pub const PHP: u8 = 0x08;
 pub const PLA: u8 = 0x68;
 /// pop processor status on the stack
 pub const PLP: u8 = 0x28;
+/// or accumulator immediate
+pub const ORA_IM: u8 = 0x09;
+/// or accumulator absolute
+pub const ORA_ABS: u8 = 0x0D;
+/// or accumulator x indexed absolute
+pub const ORA_X_ABS: u8 = 0x1D;
+/// or accumulator y indexed absolute
+pub const ORA_Y_ABS: u8 = 0x19;
+/// or accumulator zero page
+pub const ORA_ZP: u8 = 0x05;
+/// or accumulator x indexed zero page
+pub const ORA_ZP_X: u8 = 0x15;
+/// or accumulator x indexed zero page indirect
+pub const ORA_ZP_XI: u8 = 0x01;
+/// or accumulator zero page indirect y indexed
+pub const ORA_ZP_IY: u8 = 0x11;

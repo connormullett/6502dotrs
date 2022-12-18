@@ -92,6 +92,14 @@ impl Cpu {
                 PLA => self.pla(),
                 PLP => self.plp(),
                 JSR => self.jump_subroutine(),
+                ORA_IM => self.ora_im(),
+                ORA_ABS => self.ora_abs(),
+                ORA_X_ABS => self.ora_abs_x(),
+                ORA_Y_ABS => self.ora_abs_y(),
+                ORA_ZP => self.ora_zp(),
+                ORA_ZP_X => self.ora_zp_x(),
+                ORA_ZP_IY => self.ora_zp_iy(),
+                ORA_ZP_XI => self.ora_zp_xi(),
                 NOP => break,
                 _ => {
                     self.debug_print();
@@ -279,6 +287,67 @@ impl Cpu {
         self.memory.write_word(self.sp as usize, (self.pc - 1));
         self.sp -= 2;
         self.pc = sub_address;
+    }
+
+    /* OR Accumulator logical instructions */
+    /// OR accumulator immediate mode
+    fn ora_im(&mut self) {
+        self.a |= self.fetch_byte();
+        self.set_negative_and_zero_flags();
+    }
+
+    /// OR accumulator absolute mode
+    fn ora_abs(&mut self) {
+        let absolute_address = self.fetch_word();
+        let value = self.memory.read_byte(absolute_address as usize);
+        self.a |= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// OR accumulator absolute x indexed
+    fn ora_abs_x(&mut self) {
+        let absolute_address = self.fetch_word();
+        let effective_address = absolute_address + self.x as u16;
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a |= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// OR accumulator absolute y indexed
+    fn ora_abs_y(&mut self) {
+        let absolute_address = self.fetch_word();
+        let effective_address = absolute_address + self.y as u16;
+        let value = self.memory.read_byte(effective_address as usize);
+        self.a |= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// OR accumulator zero page
+    fn ora_zp(&mut self) {
+        let address = self.fetch_byte();
+        let value = self.memory.read_byte(address as usize);
+        self.a |= value;
+        self.set_negative_and_zero_flags();
+    }
+
+    /// OR accumulator zero page x indexed
+    fn ora_zp_x(&mut self) {
+        let address = self.fetch_byte();
+        let effective_address = address + self.x;
+        self.a |= self.memory.read_byte(effective_address as usize);
+        self.set_negative_and_zero_flags();
+    }
+
+    /// OR accumulator zero page indirect y indexed
+    fn ora_zp_iy(&mut self) {}
+
+    /// OR accumulator zero page x indexed indirect
+    fn ora_zp_xi(&mut self) {
+        let address = self.fetch_byte();
+        let indirect_address = address + self.x;
+        let effective_address = self.memory.read_word(indirect_address as usize);
+        self.a |= self.memory.read_byte(effective_address as usize);
+        self.set_negative_and_zero_flags();
     }
 
     /* logical shift right instructions */
