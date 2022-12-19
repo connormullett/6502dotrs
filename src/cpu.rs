@@ -91,6 +91,8 @@ impl Cpu {
                 PHP => self.php(),
                 PLA => self.pla(),
                 PLP => self.plp(),
+                JMP_ABS => self.jump_absolute(),
+                JMP_ABS_IND => self.jump_absolute_indirect(),
                 JSR => self.jump_subroutine(),
                 RTS => self.return_subroutine(),
                 ANDA_IM => self.anda_im(),
@@ -115,6 +117,9 @@ impl Cpu {
                 TXA => self.transfer_x_to_a(),
                 TXS => self.transfer_x_to_sp(),
                 TYA => self.transfer_y_to_a(),
+                SEC => self.set_carry_flag(true),
+                SED => self.set_decimal_mode(),
+                SEI => self.set_interrupt_disable(),
                 NOP => break,
                 _ => {
                     self.debug_print();
@@ -294,6 +299,26 @@ impl Cpu {
         let zero_page_address = self.fetch_byte();
         self.y = self.memory.read_byte((zero_page_address) as usize) + self.x;
         self.set_negative_and_zero_flags();
+    }
+
+    fn jump_absolute(&mut self) {
+        self.pc = self.fetch_word();
+    }
+
+    fn jump_absolute_indirect(&mut self) {
+        let indirect_address = self.fetch_word() as usize;
+        let low_byte = self.memory.read_byte(indirect_address);
+
+        // do not cross page boundary
+        let hi_byte_address = if indirect_address as u8 == 0xFF {
+            indirect_address & 0xFF00
+        } else {
+            indirect_address + 1
+        };
+
+        let hi_byte = self.memory.read_byte(hi_byte_address);
+
+        self.pc = u16::from_le_bytes([low_byte, hi_byte as u8]);
     }
 
     /// jump to a subroutine by pushing the pc onto the stack and modifying the pc
@@ -525,6 +550,15 @@ impl Cpu {
         self.ps.set(ProcessorStatus::C, flag);
     }
 
+    /// set decimal mode
+    /// This is a no-op and is not supported but is here for completeness
+    fn set_decimal_mode(&self) {}
+
+    /// sets the interupt disable flag to true
+    fn set_interrupt_disable(&mut self) {
+        self.ps.set(ProcessorStatus::I, true);
+    }
+
     /// push accumulator on the stack
     fn pha(&mut self) {
         self.memory.write_byte(self.sp as usize, self.a);
@@ -635,6 +669,58 @@ mod tests {
     }
 
     #[test]
+    fn jump_absolute_should_set_pc_to_correct_address() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = JMP_ABS;
+        cpu.memory.data[0x0002] = 0xBB;
+        cpu.memory.data[0x0003] = 0xBB;
+        cpu.memory.data[0xBBBB] = LDA_IM;
+        cpu.memory.data[0xBBBC] = 0xFF;
+        cpu.memory.data[0xBBBD] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn jump_absolute_indirect_should_set_pc_correctly() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = JMP_ABS_IND;
+        cpu.memory.data[0x0002] = 0xBB;
+        cpu.memory.data[0x0003] = 0xBB; // JMP ($BBBB)
+
+        cpu.memory.data[0xBBBB] = 0xDD;
+        cpu.memory.data[0xBBBC] = 0xDD;
+        cpu.memory.data[0xDDDD] = LDA_IM;
+        cpu.memory.data[0xDDDE] = 0xFF;
+        cpu.memory.data[0xDDDF] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn jump_absolute_indirect_should_not_cross_page_boundary() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = JMP_ABS_IND;
+        cpu.memory.data[0x0002] = 0xFF;
+        cpu.memory.data[0x0003] = 0xAA; // JMP ($AAFF)
+
+        cpu.memory.data[0xAAFF] = 0xBB;
+        cpu.memory.data[0xAA00] = 0xBB; // shouldn't cross page boundary
+
+        cpu.memory.data[0xBBBB] = LDA_IM;
+        cpu.memory.data[0xBBBC] = 0xFF;
+        cpu.memory.data[0xBBBD] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
     fn transfer_a_to_x() {
         let mut cpu = Cpu::new().reset(0x0001.into());
         cpu.a = 0xFF;
@@ -662,7 +748,7 @@ mod tests {
     fn transfer_sp_to_x() {
         let mut cpu = Cpu::new().reset(0x0001.into());
         cpu.sp = 0x0101;
-        
+
         cpu.memory.data[0x0001] = TSX;
         cpu.memory.data[0x0002] = NOP;
 
@@ -674,23 +760,22 @@ mod tests {
     fn transfer_x_to_a() {
         let mut cpu = Cpu::new().reset(0x0001.into());
         cpu.x = 0xFF;
-        
+
         cpu.memory.data[0x0001] = TXA;
         cpu.memory.data[0x0002] = NOP;
-        
+
         cpu.execute();
         assert_eq!(cpu.a, 0xFF);
-
     }
 
     #[test]
     fn transfer_y_to_a() {
         let mut cpu = Cpu::new().reset(0x0001.into());
         cpu.y = 0xFF;
-        
+
         cpu.memory.data[0x0001] = TYA;
         cpu.memory.data[0x0002] = NOP;
-        
+
         cpu.execute();
         assert_eq!(cpu.a, 0xFF);
     }
@@ -705,6 +790,39 @@ mod tests {
 
         cpu.execute();
         assert_eq!(cpu.sp, 0x01AA);
+    }
+
+    #[test]
+    fn set_carry_flag_should_set_carry_flag() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = SEC;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.ps, ProcessorStatus::C);
+    }
+
+    #[test]
+    fn set_decimal_mode_should_do_nothing() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = SED;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.ps, ProcessorStatus::empty());
+    }
+
+    #[test]
+    fn set_interrupt_disable_should_set_interrupt_flag() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+
+        cpu.memory.data[0x0001] = SEI;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.ps, ProcessorStatus::I);
     }
 
     #[test]

@@ -42,6 +42,10 @@ pub const LDY_ZP_X: u8 = 0xB4;
 pub const NOP: u8 = 0xEA;
 /// jump subroutine
 pub const JSR: u8 = 0x20;
+/// jump absolute
+pub const JMP_ABS: u8 = 0x4C;
+/// jump absolute indirect
+pub const JMP_ABS_IND: u8 = 0x6C;
 /// return from subroutine
 pub const RTS: u8 = 0x60;
 
@@ -111,3 +115,10 @@ pub const TXA: u8 = 0x8A;
 pub const TXS: u8 = 0x9A;
 /// transfer stack pointer to index x
 pub const TYA: u8 = 0x98;
+
+/// set carry flag
+pub const SEC: u8 = 0x38;
+/// set decimal mode
+pub const SED: u8 = 0xF8;
+/// set interrupt disable
+pub const SEI: u8 = 0x78;
