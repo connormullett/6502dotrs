@@ -109,6 +109,12 @@ impl Cpu {
                 ORA_ZP_X => self.ora_zp_x(),
                 ORA_ZP_IY => self.ora_zp_iy(),
                 ORA_ZP_XI => self.ora_zp_xi(),
+                TAX => self.transfer_a_to_x(),
+                TAY => self.transfer_a_to_y(),
+                TSX => self.transfer_sp_to_x(),
+                TXA => self.transfer_x_to_a(),
+                TXS => self.transfer_x_to_sp(),
+                TYA => self.transfer_y_to_a(),
                 NOP => break,
                 _ => {
                     self.debug_print();
@@ -545,6 +551,47 @@ impl Cpu {
         self.ps = ProcessorStatus::from_bits_truncate(ps);
     }
 
+    /// transfer accumulator to index x
+    fn transfer_a_to_x(&mut self) {
+        self.x = self.a;
+
+        self.ps.set(ProcessorStatus::Z, self.x == 0);
+        self.ps.set(ProcessorStatus::N, (self.x & 0x80) > 0);
+    }
+
+    /// transfer accumulator to index y
+    fn transfer_a_to_y(&mut self) {
+        self.y = self.a;
+
+        self.ps.set(ProcessorStatus::Z, self.y == 0);
+        self.ps.set(ProcessorStatus::N, (self.y & 0x80) > 0);
+    }
+
+    /// transfer stack pointer to x
+    fn transfer_sp_to_x(&mut self) {
+        // stack is a fixed area of memory at 0x0100 to 0x01FF
+        // but is represented as 16 bits. sp should be u8 and
+        // compensate for the high byte when pushing/pulling
+        self.x = self.sp as u8;
+
+        self.ps.set(ProcessorStatus::Z, self.x == 0);
+        self.ps.set(ProcessorStatus::N, (self.x & 0x80) > 0);
+    }
+
+    fn transfer_x_to_a(&mut self) {
+        self.a = self.x;
+        self.set_negative_and_zero_flags();
+    }
+
+    fn transfer_x_to_sp(&mut self) {
+        self.sp = 0x0100 | (self.x as u16);
+    }
+
+    fn transfer_y_to_a(&mut self) {
+        self.a = self.y;
+        self.set_negative_and_zero_flags();
+    }
+
     /// no-op (do nothing)
     fn nop(&mut self) {}
 }
@@ -581,6 +628,30 @@ mod tests {
         cpu.memory.write_word(0xFFFC, data);
         let word = cpu.memory.read_word(0xFFFC);
         assert_eq!(word, data);
+    }
+
+    #[test]
+    fn transfer_a_to_x() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.a = 0xFF;
+
+        cpu.memory.data[0x0001] = TAX;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0xFF);
+    }
+
+    #[test]
+    fn transfer_a_to_y() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.a = 0xFF;
+
+        cpu.memory.data[0x0001] = TAY;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.y, 0xFF);
     }
 
     #[test]

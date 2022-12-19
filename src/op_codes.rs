@@ -99,3 +99,15 @@ pub const ORA_ZP_XI: u8 = 0x01;
 /// and accumulator zero page indirect y indexed
 pub const ORA_ZP_IY: u8 = 0x11;
 
+/// transfer accumulator to index x
+pub const TAX: u8 = 0xAA;
+/// transfer accumulator to index y
+pub const TAY: u8 = 0xA8;
+/// transfer stack pointer to index x
+pub const TSX: u8 = 0xBA;
+/// transfer stack pointer to index x
+pub const TXA: u8 = 0x8A;
+/// transfer stack pointer to index x
+pub const TXS: u8 = 0x9A;
+/// transfer stack pointer to index x
+pub const TYA: u8 = 0x98;
