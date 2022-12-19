@@ -551,6 +551,7 @@ impl Cpu {
         self.ps = ProcessorStatus::from_bits_truncate(ps);
     }
 
+    /* Implied transfer instructions */
     /// transfer accumulator to index x
     fn transfer_a_to_x(&mut self) {
         self.x = self.a;
@@ -569,7 +570,7 @@ impl Cpu {
 
     /// transfer stack pointer to x
     fn transfer_sp_to_x(&mut self) {
-        // stack is a fixed area of memory at 0x0100 to 0x01FF
+        // TODO: stack is a fixed area of memory at 0x0100 to 0x01FF
         // but is represented as 16 bits. sp should be u8 and
         // compensate for the high byte when pushing/pulling
         self.x = self.sp as u8;
@@ -578,15 +579,18 @@ impl Cpu {
         self.ps.set(ProcessorStatus::N, (self.x & 0x80) > 0);
     }
 
+    /// transfer index x to accumulator
     fn transfer_x_to_a(&mut self) {
         self.a = self.x;
         self.set_negative_and_zero_flags();
     }
 
+    /// transfer index x to stack pointer
     fn transfer_x_to_sp(&mut self) {
         self.sp = 0x0100 | (self.x as u16);
     }
 
+    /// transfer index y to accumulator
     fn transfer_y_to_a(&mut self) {
         self.a = self.y;
         self.set_negative_and_zero_flags();
@@ -652,6 +656,55 @@ mod tests {
 
         cpu.execute();
         assert_eq!(cpu.y, 0xFF);
+    }
+
+    #[test]
+    fn transfer_sp_to_x() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.sp = 0x0101;
+        
+        cpu.memory.data[0x0001] = TSX;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.x, 0x01);
+    }
+
+    #[test]
+    fn transfer_x_to_a() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.x = 0xFF;
+        
+        cpu.memory.data[0x0001] = TXA;
+        cpu.memory.data[0x0002] = NOP;
+        
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+
+    }
+
+    #[test]
+    fn transfer_y_to_a() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.y = 0xFF;
+        
+        cpu.memory.data[0x0001] = TYA;
+        cpu.memory.data[0x0002] = NOP;
+        
+        cpu.execute();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn transfer_x_to_sp() {
+        let mut cpu = Cpu::new().reset(0x0001.into());
+        cpu.x = 0xAA;
+
+        cpu.memory.data[0x0001] = TXS;
+        cpu.memory.data[0x0002] = NOP;
+
+        cpu.execute();
+        assert_eq!(cpu.sp, 0x01AA);
     }
 
     #[test]
