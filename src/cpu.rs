@@ -318,7 +318,7 @@ impl Cpu {
 
         let hi_byte = self.memory.read_byte(hi_byte_address);
 
-        self.pc = u16::from_le_bytes([low_byte, hi_byte as u8]);
+        self.pc = u16::from_le_bytes([low_byte, hi_byte]);
     }
 
     /// jump to a subroutine by pushing the pc onto the stack and modifying the pc
